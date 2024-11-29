@@ -1,7 +1,5 @@
 import heapq
 import csv
-import random
-
 
 # CSV parsing function
 def csv_format(filename):
@@ -11,7 +9,6 @@ def csv_format(filename):
         for row in csv_reader:
             grid.append(row)
     return grid
-
 
 # Define Node class
 class Node:
@@ -27,11 +24,9 @@ class Node:
     def __lt__(self, other):
         return self.f < other.f
 
-
 # Heuristic function: Manhattan distance
 def heuristic(a, b):
     return abs(a.x - b.x) + abs(a.y - b.y)
-
 
 # Get legal moves: considering obstacles and grid bounds
 def get_legal_moves(node, grid):
@@ -47,10 +42,8 @@ def get_legal_moves(node, grid):
         directions.append((node.x + 1, node.y))
     return directions
 
-
 # A* pathfinding
 def a_star(grid, start, goal):
-    rows, cols = len(grid), len(grid[0])
     start_node = Node(start[0], start[1], grid[start[1]][start[0]])
     goal_node = Node(goal[0], goal[1], grid[goal[1]][goal[0]])
 
@@ -84,60 +77,79 @@ def a_star(grid, start, goal):
 
     return None
 
-
 # Update grid with predator and prey positions
-def update_grid(grid, prey, predator):
-    # Clear previous positions
-    for row in grid:
-        for i, cell in enumerate(row):
-            if cell in ['D', 'L']:
-                row[i] = '.'
+def update_grid(grid, prey, predator, food_locations):
+    # Clear only non-food positions of previous 'D' and 'L'
+    for y, row in enumerate(grid):
+        for x, cell in enumerate(row):
+            if cell == 'D' or cell == 'L':
+                grid[y][x] = '.' if (x, y) not in food_locations else 'F'
+
     # Place prey and predator in their new positions
-    grid[prey.y][prey.x] = 'D'
-    grid[predator.y][predator.x] = 'L'
+    if (prey.x, prey.y) in food_locations:
+        grid[prey.y][prey.x] = 'F'  # Keep food if prey is on food
+    else:
+        grid[prey.y][prey.x] = 'D'
 
+    if (predator.x, predator.y) in food_locations:
+        grid[predator.y][predator.x] = 'F'  # Keep food if predator is on food
+    else:
+        grid[predator.y][predator.x] = 'L'
 
+# Minimax algorithm
+def minimax(grid, predator, prey, depth, is_maximizer):
+    if depth == 0 or predator.x == prey.x and predator.y == prey.y:
+        return -heuristic(predator, prey)  # Predator wants to minimize distance
 
-# Predator movement using A*
-def predator_move(grid, predator, prey):
-    path_to_prey = a_star(grid, (predator.x, predator.y), (prey.x, prey.y))
-    if path_to_prey and len(path_to_prey) > 1:
-        predator.x, predator.y = path_to_prey[1]  # Move one step toward the prey
+    if is_maximizer:
+        max_eval = float('-inf')
+        for move in get_legal_moves(predator, grid):
+            next_predator = Node(move[0], move[1], predator.value)
+            eval = minimax(grid, next_predator, prey, depth - 1, False)
+            max_eval = max(max_eval, eval)
+        return max_eval
+    else:
+        min_eval = float('inf')
+        for move in get_legal_moves(prey, grid):
+            next_prey = Node(move[0], move[1], prey.value)
+            eval = minimax(grid, predator, next_prey, depth - 1, True)
+            min_eval = min(min_eval, eval)
+        return min_eval
 
+# Predator movement using Minimax
+def predator_move(grid, predator, prey, depth=3):
+    best_move = None
+    max_eval = float('-inf')
 
+    for move in get_legal_moves(predator, grid):
+        next_predator = Node(move[0], move[1], predator.value)
+        eval = minimax(grid, next_predator, prey, depth - 1, False)
+        if eval > max_eval:
+            max_eval = eval
+            best_move = move
 
+    if best_move:
+        predator.x, predator.y = best_move
 
 # Prey movement using A*
 def prey_move(grid, prey, food_locations, goal, collected_food):
     if food_locations:
-        # Find nearest food
         nearest_food = min(food_locations, key=lambda f: heuristic(prey, Node(f[0], f[1], 'F')))
         path_to_food = a_star(grid, (prey.x, prey.y), nearest_food)
         if path_to_food and len(path_to_food) > 1:
-            prey.x, prey.y = path_to_food[1]  # Move to the next step
+            prey.x, prey.y = path_to_food[1]
             if (prey.x, prey.y) in food_locations:
-                collected_food.add((prey.x, prey.y))  # Mark food as collected
-                food_locations.remove((prey.x, prey.y))  # Remove from food list
+                collected_food.add((prey.x, prey.y))
+                food_locations.remove((prey.x, prey.y))
     else:
-        # Move to goal if all food is collected
         path_to_goal = a_star(grid, (prey.x, prey.y), (goal.x, goal.y))
         if path_to_goal and len(path_to_goal) > 1:
-            prey.x, prey.y = path_to_goal[1]  # Move to the next step
-            
-def predict_prey_path(grid, prey, goal, food_locations):
-    if food_locations:
-        nearest_food = min(food_locations, key=lambda f: heuristic(prey, Node(f[0], f[1], 'F')))
-        return a_star(grid, (prey.x, prey.y), nearest_food)
-    else:
-        return a_star(grid, (prey.x, prey.y), (goal.x, goal.y))
-
-
+            prey.x, prey.y = path_to_goal[1]
 
 # Simulate the predator-prey game
 def simulate_game(grid_path):
     grid = csv_format(grid_path)
 
-    # Locate prey, predator, food, and goal
     food_locations = set()
     for y, row in enumerate(grid):
         for x, cell in enumerate(row):
@@ -153,36 +165,27 @@ def simulate_game(grid_path):
     collected_food = set()
 
     while True:
-        # Update grid
-        update_grid(grid, prey, predator)
+        update_grid(grid, prey, predator, food_locations)
 
-        # Display current state of the grid
         for row in grid:
             print(" ".join(row))
         print()
 
-        # Debugging info
         print(f"Prey position: ({prey.x}, {prey.y})")
         print(f"Predator position: ({predator.x}, {predator.y})")
         print(f"Food locations: {food_locations}")
 
-        # Prey moves
         prey_move(grid, prey, food_locations, goal, collected_food)
 
-        # Check if prey reached the goal
         if prey.x == goal.x and prey.y == goal.y:
             print("Prey reached the goal!")
             break
 
-        # Predator moves
         predator_move(grid, predator, prey)
 
-        # Check if predator caught the prey
         if predator.x == prey.x and predator.y == prey.y:
             print("Predator caught the prey!")
             break
-
-
 
 # Run the simulation with a sample grid file
 grid_path = r"C:\Users\haroo\Desktop\AIFINAL\test.csv"
