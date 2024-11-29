@@ -152,7 +152,7 @@ def prey_move(grid, prey, food_locations, goal, collected_food):
         if path_to_goal and len(path_to_goal) > 1:
             prey.x, prey.y = path_to_goal[1]
 
-# Simulate the predator-prey game
+
 # Simulate the predator-prey game
 def simulate_game(grid_path):
     grid = csv_format(grid_path)
@@ -195,6 +195,6 @@ def simulate_game(grid_path):
             break
 
 
-# Run the simulation with a sample grid file
+
 grid_path = r"C:\Users\haroo\Desktop\AIFINAL\test1.csv"
 simulate_game(grid_path)
