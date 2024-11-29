@@ -1,7 +1,7 @@
 import heapq
 import csv
 
-# CSV parsing function
+
 def csv_format(filename):
     grid = []
     with open(filename, 'r') as file:
@@ -10,7 +10,7 @@ def csv_format(filename):
             grid.append(row)
     return grid
 
-# Define Node class
+
 class Node:
     def __init__(self, x, y, value, g=0, heuristic=0, parent=None):
         self.x = x
@@ -24,11 +24,10 @@ class Node:
     def __lt__(self, other):
         return self.f < other.f
 
-# Heuristic function: Manhattan distance
 def heuristic(a, b):
     return abs(a.x - b.x) + abs(a.y - b.y)
 
-# Get legal moves: considering obstacles and grid bounds
+
 def get_legal_moves(node, grid):
     directions = []
     rows, cols = len(grid), len(grid[0])
@@ -117,11 +116,17 @@ def minimax(grid, predator, prey, depth, is_maximizer):
         return min_eval
 
 # Predator movement using Minimax
-def predator_move(grid, predator, prey, depth=3):
+def predator_move(grid, predator, prey, goal, depth=3):
     best_move = None
     max_eval = float('-inf')
 
-    for move in get_legal_moves(predator, grid):
+    # Get all possible legal moves for the predator
+    legal_moves = get_legal_moves(predator, grid)
+    
+    # Avoid moving beyond the goal 'H'
+    legal_moves = [move for move in legal_moves if not (move[0] == goal.x and move[1] == goal.y)]
+
+    for move in legal_moves:
         next_predator = Node(move[0], move[1], predator.value)
         eval = minimax(grid, next_predator, prey, depth - 1, False)
         if eval > max_eval:
@@ -130,6 +135,7 @@ def predator_move(grid, predator, prey, depth=3):
 
     if best_move:
         predator.x, predator.y = best_move
+
 
 # Prey movement using A*
 def prey_move(grid, prey, food_locations, goal, collected_food):
@@ -146,6 +152,7 @@ def prey_move(grid, prey, food_locations, goal, collected_food):
         if path_to_goal and len(path_to_goal) > 1:
             prey.x, prey.y = path_to_goal[1]
 
+# Simulate the predator-prey game
 # Simulate the predator-prey game
 def simulate_game(grid_path):
     grid = csv_format(grid_path)
@@ -181,12 +188,13 @@ def simulate_game(grid_path):
             print("Prey reached the goal!")
             break
 
-        predator_move(grid, predator, prey)
+        predator_move(grid, predator, prey, goal)
 
         if predator.x == prey.x and predator.y == prey.y:
             print("Predator caught the prey!")
             break
 
+
 # Run the simulation with a sample grid file
-grid_path = r"C:\Users\haroo\Desktop\AIFINAL\test.csv"
+grid_path = r"C:\Users\haroo\Desktop\AIFINAL\test1.csv"
 simulate_game(grid_path)
